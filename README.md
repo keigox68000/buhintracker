@@ -34,7 +34,7 @@ HTML＋JavaScriptだけで構成されており、インタラクティブに進
   - 同一ブラウザ上でのみ保存状態が維持されます。
 
 ---
-
+```
 ## 📁 ファイル構成
 
 buhintracker/
@@ -46,7 +46,7 @@ buhintracker/
     └── buhin.png  
 
 ※ `index.html` は GitHub Pages のトップページとして使用されます（アプリ本体ではありません）。
-
+```
 ---
 
 ## 📄 ライセンス
