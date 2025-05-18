@@ -1,0 +1,237 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>部品加工 工程表</title>
+  <style>
+    body {
+      font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif; font-size: 18px;
+    }
+    table { border-collapse: collapse; width: auto; }
+    th, td {
+      border: 1px solid black;
+      padding: 6px;
+      text-align: center;
+      min-width: 120px;
+      height: 50px;
+      position: relative;
+    }
+    .clickable { cursor: pointer; }
+    .circle { color: transparent; }
+    .circle::before {
+      content: "\25CB";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 36px;
+      color: red;
+      font-weight: bold;
+      pointer-events: none;
+    }
+    .complete { color: red; font-weight: bold; font-size: 18px; }
+    .lock-btn { font-size: 12px; padding: 4px 8px; }
+    tfoot td { font-weight: bold; }
+    td:first-child { font-weight: bold; }
+    td:nth-child(2) { font-size: 28px; }
+    tfoot td:nth-child(2), tfoot td:nth-child(3), tfoot td:nth-child(4),
+    tfoot td:nth-child(5), tfoot td:nth-child(6), tfoot td:nth-child(7) {
+      font-size: 20px;
+    }
+    tfoot td:first-child { font-size: 18px; }
+    .title-bar {
+      display: flex;
+      align-items: center;
+      gap: 80px;
+    }
+
+    .workname-label {
+      font-size: 20px;
+      font-weight: normal;
+      padding: 4px 12px;
+      background-color: #e0f7ff; /* 薄い水色 */
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .title-bar h2 {
+      margin: 0; /* ← h2 の余白をリセット */
+    }
+
+    /* 部品番号セル（水色背景） */
+    td.clickable {
+      background-color: #eeffff; /* 薄い水色 */
+    }
+
+    /* ロック可能なセル（番号セル）→ 薄い水色 */
+    td.lockable {
+      background-color: #eeffff;
+    }
+
+    /* ロックできないがクリック可能なセル（作業セル）→ 薄い緑色 */
+    td.step-cell {
+      background-color: #eeffee;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="title-bar">
+    <h2>部品加工 工程表</h2>
+    <span id="worknameLabel" class="workname-label">文庫本立A</span>
+  </div>
+  
+<table id="processTable">
+  <thead>
+    <tr>
+      <th></th>
+      <th>
+        部品番号<br>
+        <button id="lockButton" class="lock-btn">🔓 ロック解除中</button>
+      </th>
+      <th>線を引く作業</th>
+      <th>木を切る作業</th>
+      <th>木を削る作業</th>
+      <th>穴あけの印を<br>つける作業</th>
+      <th>穴を開ける作業</th>
+      <th>部品完成！</th>
+    </tr>
+  </thead>
+  <tbody>
+    <!-- JavaScriptで行を生成 -->
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="2">使用する工具👉️</td>
+      <td>さしがね</td>
+      <td>のこぎり</td>
+      <td>木工やすり</td>
+      <td>さしがね</td>
+      <td>ボール盤</td>
+      <td></td>
+    </tr>
+  </tfoot>
+</table>
+
+<script>
+const partNames = ['材料A①','材料A②','材料B①','材料B②','材料C①','材料C②','材料C③'];
+const stepTexts = ['けがき','切断','やすりがけ','下穴の印','下穴あけ'];
+const workNames = ['文庫本立A','文庫本立B','本立て','マガジンラック'];
+let worknameIndex = 0;
+let isLocked = false;
+let rowElements = [];
+const STORAGE_KEY = "工程表進捗";
+const LOCK_KEY = "工程表ロック状態";
+const WORKNAME_KEY = "工程表作品名";
+
+const tbody = document.querySelector("#processTable tbody");
+const lockButton = document.getElementById('lockButton');
+const worknameLabel = document.getElementById('worknameLabel');
+
+lockButton.addEventListener('click', () => {
+  isLocked = !isLocked;
+  lockButton.textContent = isLocked ? '🔒 　ロック中　' : '🔓 ロック解除中';
+  localStorage.setItem(LOCK_KEY, isLocked ? 'locked' : 'unlocked');
+});
+
+worknameLabel.addEventListener('click', () => {
+  if (isLocked) return;
+  worknameIndex = (worknameIndex + 1) % workNames.length;
+  worknameLabel.textContent = workNames[worknameIndex];
+  localStorage.setItem(WORKNAME_KEY, worknameIndex);
+});
+
+partNames.forEach((name, rowIndex) => {
+  const tr = document.createElement('tr');
+  rowElements[rowIndex] = {};
+  const partCell = document.createElement('td');
+  partCell.textContent = name;
+  tr.appendChild(partCell);
+  const numberCell = document.createElement('td');
+// 部品番号セル（ロック対象）
+  numberCell.className = 'clickable lockable';
+  numberCell.dataset.number = 1;
+  numberCell.textContent = '①';
+  numberCell.addEventListener('click', () => {
+    if (isLocked) return;
+    let num = parseInt(numberCell.dataset.number);
+    num = num % 5 + 1;
+    numberCell.dataset.number = num;
+    numberCell.textContent = '①②③④⑤'[num - 1];
+    saveProgress();
+  });
+  tr.appendChild(numberCell);
+  rowElements[rowIndex].numberCell = numberCell;
+  rowElements[rowIndex].stepCells = [];
+  stepTexts.forEach((text, i) => {
+    const td = document.createElement('td');
+    td.textContent = text;
+    // 各作業セル（ロック不可のクリック対象）
+    td.className = 'clickable step-cell';
+    td.addEventListener('click', () => {
+      td.classList.toggle('circle');
+      td.textContent = td.classList.contains('circle') ? '' : text;
+      checkComplete(rowIndex);
+      saveProgress();
+    });
+    tr.appendChild(td);
+    rowElements[rowIndex].stepCells.push(td);
+  });
+  const completeCell = document.createElement('td');
+  tr.appendChild(completeCell);
+  rowElements[rowIndex].completeCell = completeCell;
+  tbody.appendChild(tr);
+});
+
+function checkComplete(rowIndex) {
+  const steps = rowElements[rowIndex].stepCells;
+  const complete = rowElements[rowIndex].completeCell;
+  const done = steps.every(cell => cell.classList.contains('circle'));
+  complete.textContent = done ? '完成！' : '';
+  complete.className = done ? 'complete' : '';
+}
+
+function saveProgress() {
+  const data = rowElements.map(row => ({
+    number: parseInt(row.numberCell.dataset.number),
+    steps: row.stepCells.map(cell => cell.classList.contains('circle'))
+  }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  localStorage.setItem(WORKNAME_KEY, worknameIndex);
+}
+
+function loadProgress() {
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+  saved.forEach((row, rowIndex) => {
+    if (!rowElements[rowIndex]) return;
+    const r = rowElements[rowIndex];
+    const num = row.number || 1;
+    r.numberCell.dataset.number = num;
+    r.numberCell.textContent = '①②③④⑤'[num - 1];
+    row.steps?.forEach((done, i) => {
+      const cell = r.stepCells[i];
+      if (!cell) return;
+      if (done) {
+        cell.classList.add('circle');
+        cell.textContent = '';
+      } else {
+        cell.classList.remove('circle');
+        cell.textContent = stepTexts[i];
+      }
+    });
+    checkComplete(rowIndex);
+  });
+  const lockState = localStorage.getItem(LOCK_KEY);
+  isLocked = lockState === 'locked';
+  lockButton.textContent = isLocked ? '🔒 　ロック中　' : '🔓 ロック解除中';
+  const savedIndex = parseInt(localStorage.getItem(WORKNAME_KEY));
+  if (!isNaN(savedIndex)) {
+    worknameIndex = savedIndex;
+    worknameLabel.textContent = workNames[worknameIndex];
+  }
+}
+
+window.addEventListener('DOMContentLoaded', loadProgress);
+</script>
+</body>
+</html>
